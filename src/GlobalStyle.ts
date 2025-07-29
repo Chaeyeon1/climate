@@ -1,10 +1,19 @@
 import { createGlobalStyle } from 'styled-components';
 
+// palette 정의해줘
+export const palette = {
+  primary: '#689F38',
+  secondary: '#F9FAFB',
+  textPrimary: '#000000',
+  textSecondary: '#FFFFFF',
+  border: '#E5E7EB',
+};
+
 export const GlobalStyle = createGlobalStyle`
   body {
     margin: 0;
     background-color: #ffffff;
-    color: #18181B;
+    color: #689F38;
     font-family: 'Pretendard', sans-serif;
     font-size: 16px;
     line-height: 1.6;
@@ -27,18 +36,18 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   button {
-    background-color: #18181B;
+    background-color: #689F38;
     color: white;
   }
 
   select, input {
     background-color: #F9FAFB;
     border: 1px solid #E5E7EB;
-    color: #18181B;
+    color: #689F38;
   }
 
   select:focus, input:focus {
-    border-color: #18181B;
+    border-color: #689F38;
     outline: none;
   }
 `;

@@ -9,6 +9,7 @@ const FilterWrapper = styled.div`
 const Input = styled.input`
   flex: 1;
   min-width: 200px;
+  cursor: text;
 `;
 
 const StyledSelect = styled.select`
@@ -63,7 +64,7 @@ export const SearchFilter = ({ onSearch }: { onSearch: () => void }) => {
         <StyledOption>전체 부문</StyledOption>
       </StyledSelect>
       <SearchContainer>
-        <Input placeholder="검색어 입력" />
+        <Input placeholder='검색어 입력' />
         <button onClick={onSearch}>검색</button>
       </SearchContainer>
     </FilterWrapper>

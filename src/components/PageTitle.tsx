@@ -4,7 +4,7 @@ const Title = styled.h1`
   font-size: 28px;
   font-weight: 700;
   color: #18181b;
-  margin: 32px 0 4px;
+  margin: 32px 0px 0px;
 `;
 
 export const PageTitle = ({ children }: { children: string }) => {

@@ -4,10 +4,14 @@ import { ContentCard } from './ContentCard';
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 24px;
+  gap: 32px;
 `;
 
-export const ContentList = ({ items }: { items: { title: string; description: string }[] }) => {
+export const ContentList = ({
+  items,
+}: {
+  items: { title: string; description: string; image: string }[];
+}) => {
   return (
     <Grid>
       {items.map((item, idx) => (
