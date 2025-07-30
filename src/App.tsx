@@ -1,7 +1,12 @@
 import React from 'react';
 import MainPage from '@/pages/index';
 
-function App() {
+type Props = {
+  onToggleTheme: () => void;
+  themeMode: 'light' | 'dark';
+};
+
+function App({ onToggleTheme, themeMode }: Props) {
   return <MainPage />;
 }
 

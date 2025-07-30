@@ -16,13 +16,12 @@ const Tab = styled.button<{ active: boolean }>`
   padding: 12px 16px;
   font-size: 16px;
   font-weight: 600;
-  color: ${({ active }) => (active ? '#689F38' : '#9CA3AF')};
-  border-bottom: ${({ active }) =>
-    active ? '2px solid #689F38' : '2px solid transparent'};
+  color: ${({ active }) => (active ? '#18181B' : '#9CA3AF')};
+  border-bottom: ${({ active }) => (active ? '2px solid #18181B' : '2px solid transparent')};
   cursor: pointer;
   border-radius: 0;
   &:hover {
-    color: #689f38;
+    color: #18181b;
   }
 `;
 
@@ -34,15 +33,15 @@ const TabWrapper = styled.div`
 
 const Login = styled.button`
   color: #ffffff;
-  background-color: #689f38;
+  background-color: #18181b;
   cursor: pointer;
   height: 32px;
   font-size: 12px;
   padding: 4px 16px;
 `;
 const Logout = styled.button`
-  color: #689f38;
-  border: 1px solid #689f38;
+  color: #18181b;
+  border: 1px solid #18181b;
   background-color: transparent;
   cursor: pointer;
   height: 32px;
@@ -62,17 +61,12 @@ export const TabMenu = ({
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   return (
     <Header>
+      <img src="/logo.jpg" width="180px" height="32px" />
       <TabWrapper>
-        <Tab
-          active={active === 'inventory'}
-          onClick={() => onChange('inventory')}
-        >
+        <Tab active={active === 'inventory'} onClick={() => onChange('inventory')}>
           인벤토리
         </Tab>
-        <Tab
-          active={active === 'cardnews'}
-          onClick={() => onChange('cardnews')}
-        >
+        <Tab active={active === 'cardnews'} onClick={() => onChange('cardnews')}>
           카드뉴스
         </Tab>
         <Tab active={active === 'map'} onClick={() => onChange('map')}>

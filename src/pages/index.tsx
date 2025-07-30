@@ -47,9 +47,7 @@ export default function MainPage() {
       <TabMenu
         setOpen={setOpen}
         active={tab?.type}
-        onChange={(newTab) =>
-          setTab(tabList.find((t) => t.type === (newTab ?? 'inventory'))!)
-        }
+        onChange={(newTab) => setTab(tabList.find((t) => t.type === (newTab ?? 'inventory'))!)}
       />
 
       <div
@@ -58,7 +56,7 @@ export default function MainPage() {
           margin: '52px auto',
         }}
       >
-        <div style={{ borderLeft: '4px solid #689F38', paddingLeft: '16px' }}>
+        <div style={{ borderLeft: '4px solid #18181B', paddingLeft: '16px' }}>
           <PageTitle>{tab?.title}</PageTitle>
           <SubPageTitle>{tab?.subTitle}</SubPageTitle>
         </div>
