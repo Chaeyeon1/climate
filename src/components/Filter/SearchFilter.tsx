@@ -1,3 +1,6 @@
+import { useFilter } from '@/hooks/useFilter';
+import { CardParams } from '@/types';
+import { Dispatch, useEffect, useState } from 'react';
 import styled from 'styled-components';
 const FilterWrapper = styled.div`
   display: flex;
@@ -50,29 +53,46 @@ const SearchContainer = styled.div`
   flex: 1;
 `;
 
-export const SearchFilter = ({ onSearch }: { onSearch: () => void }) => {
+export const SearchFilter = ({ onChangeFilter }: { onChangeFilter: Dispatch<React.SetStateAction<CardParams>> }) => {
+  const [localQuery, setLocalQuery] = useState('');
+  const { data, isLoading } = useFilter();
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      onChangeFilter((prev) => ({ ...prev, query: localQuery }));
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [localQuery]);
+
   return (
     <FilterWrapper>
-      <StyledSelect>
-        <StyledOption>전체 지역</StyledOption>
-        <StyledOption>한국</StyledOption>
-        <StyledOption>미국</StyledOption>
-        <StyledOption>중국</StyledOption>
+      <StyledSelect onChange={(e) => onChangeFilter((prev) => ({ ...prev, region: e.target.value }))}>
+        <StyledOption value="">전체 지역</StyledOption>
+        {data?.regions?.map((item) => (
+          <StyledOption key={item} value={item}>
+            {item}
+          </StyledOption>
+        ))}
       </StyledSelect>
-      <StyledSelect>
-        <StyledOption>전체 종류</StyledOption>
-        <StyledOption>논문</StyledOption>
-        <StyledOption>뉴스</StyledOption>
-        <StyledOption>기사</StyledOption>
+      <StyledSelect onChange={(e) => onChangeFilter((prev) => ({ ...prev, type: e.target.value }))}>
+        <StyledOption value="">전체 종류</StyledOption>
+        {data?.types?.map((item) => (
+          <StyledOption key={item} value={item}>
+            {item}
+          </StyledOption>
+        ))}
       </StyledSelect>
-      <StyledSelect>
-        <StyledOption>전체 부문</StyledOption>
-        <StyledOption>정책</StyledOption>
-        <StyledOption>연구</StyledOption>
+      <StyledSelect onChange={(e) => onChangeFilter((prev) => ({ ...prev, sector: e.target.value }))}>
+        <StyledOption value="">전체 부문</StyledOption>
+        {data?.sectors?.map((item) => (
+          <StyledOption key={item} value={item}>
+            {item}
+          </StyledOption>
+        ))}
       </StyledSelect>
       <SearchContainer>
-        <Input placeholder="검색어 입력" />
-        <button onClick={onSearch}>검색</button>
+        <Input placeholder="검색어 입력" value={localQuery} onChange={(e) => setLocalQuery(e.target.value)} />
       </SearchContainer>
     </FilterWrapper>
   );

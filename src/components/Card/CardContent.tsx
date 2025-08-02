@@ -50,22 +50,11 @@ const TitleContainer = styled.div`
   padding: 4px 12px 8px 12px;
 `;
 
-export const ContentCard = ({
-  title,
-  description,
-  image,
-}: {
-  title: string;
-  description: string;
-  image: string;
-}) => {
+export const CardContent = ({ title, description, image }: { title: string; description: string; image: string }) => {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <Card
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+    <Card onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       {hovered && <BlackOpacityOverlay />}
       <Thumbnail src={image} alt={title} />
       <TitleContainer>

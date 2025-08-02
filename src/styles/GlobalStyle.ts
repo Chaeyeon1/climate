@@ -1,6 +1,5 @@
 import { createGlobalStyle } from 'styled-components';
 
-// palette 정의해줘
 export const palette = {
   primary: '#18181B',
   secondary: '#F9FAFB',

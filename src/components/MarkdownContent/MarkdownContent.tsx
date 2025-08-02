@@ -1,18 +1,11 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
-import { useParams } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
+import { useMarkdownContent } from '@/hooks/useMarkdownContent';
+import { useState } from 'react';
+import { CardParams } from '@/types';
 
-export const InventoryDetail = () => {
-  const { id } = useParams();
-  const [markdown, setMarkdown] = useState('');
-
-  useEffect(() => {
-    axios.get(`/inventory/${id}`).then((res) => {
-      setMarkdown(res.data.content);
-    });
-  }, [id]);
+export const MarkdownContent = () => {
+  const { data, isLoading } = useMarkdownContent();
 
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto', padding: '24px' }}>
@@ -23,7 +16,7 @@ export const InventoryDetail = () => {
         }}
         remarkPlugins={[remarkGfm]}
       >
-        {markdown}
+        {data?.content}
       </ReactMarkdown>
     </div>
   );

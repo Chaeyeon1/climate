@@ -1,28 +1,26 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { SearchFilter } from './components/Filter/SearchFilter';
 import { PageTitle, SubPageTitle } from './components/PageTitle';
-import { ContentList } from './components/Content/ContentList';
+import { CardList } from './components/Card/CardList';
 import { EnvMap } from './components/Map/EnvMap';
 import { LoginModal } from './components/Modal/LoginModal';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Header } from './components/Header/Header';
 import { SubHeader } from './components/Header/SubHeader';
 import { TabType } from './types';
-import { InventoryDetail } from './pages/inventory/InventoryDetail/InventoryDetail';
+import { MarkdownContent } from './components/MarkdownContent/MarkdownContent';
+import { useLogin } from './hooks/useLogin';
+import toast, { Toaster } from 'react-hot-toast';
 
 type Props = {
   onToggleTheme: () => void;
   themeMode: 'light' | 'dark';
 };
 
-const dummyData = [...Array(10)].map((_, i) => ({
-  title: `콘텐츠 ${i + 1}`,
-  description: '설명 텍스트입니다.',
-  image: `https://picsum.photos/id/${i + 120}/200/200`,
-}));
-
 function App({}: Props) {
   const [open, setOpen] = useState(false);
+  const { isLoggedIn, handleLogin, handleLogout, isLoading } = useLogin();
+
   const handleLoginModalOpen = () => {
     setOpen(true);
   };
@@ -47,22 +45,30 @@ function App({}: Props) {
 
   return (
     <main style={{ paddingInline: '24px' }}>
-      <Header tabList={tabList} onLoginModalOpen={handleLoginModalOpen} />
+      <Toaster />
+      <Header
+        tabList={tabList}
+        onLoginModalOpen={handleLoginModalOpen}
+        handleLogout={handleLogout}
+        isLoggedIn={isLoggedIn}
+      />
       <div
         style={{
           maxWidth: '960px',
           margin: '52px auto',
         }}
       >
+        <SubHeader tabList={tabList} />
         <Routes>
           <Route path="/" element={<Navigate to="/inventory" replace />} />
-          <Route path="/inventory" element={<ContentList items={dummyData} />} />
-          <Route path="/inventory/:id" element={<InventoryDetail />} />
-          <Route path="/news" element={<ContentList items={dummyData} />} />
+          <Route path="/inventory" element={<CardList />} />
+          <Route path="/inventory/:id" element={<MarkdownContent />} />
+          <Route path="/news" element={<CardList />} />
+          <Route path="/news/:id" element={<MarkdownContent />} />
           <Route path="/map" element={<EnvMap />} />
         </Routes>
       </div>
-      {open && <LoginModal onClose={() => setOpen(false)} />}
+      {open && <LoginModal isLoading={isLoading} onClose={() => setOpen(false)} onLogin={handleLogin} />}
     </main>
   );
 }

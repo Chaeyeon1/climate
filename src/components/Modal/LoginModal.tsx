@@ -2,6 +2,8 @@ import { styled } from 'styled-components';
 import { Button } from '../Button/Button';
 import { Input } from '../Input/Input';
 import { Modal } from './Modal';
+import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 
 const SubText = styled.p`
   font-size: 12px;
@@ -19,7 +21,27 @@ const MailLink = styled.a`
   }
 `;
 
-export const LoginModal = ({ onClose }: { onClose: () => void }) => {
+export const LoginModal = ({
+  onClose,
+  onLogin,
+  isLoading,
+}: {
+  onClose: () => void;
+  onLogin: ({ email, password, onClose }: { email: string; password: string; onClose: () => void }) => Promise<void>;
+  isLoading: boolean;
+}) => {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
     <Modal.ModalContainer>
       <Modal.ModalContent>
@@ -38,7 +60,22 @@ export const LoginModal = ({ onClose }: { onClose: () => void }) => {
             <img src="/close.svg" alt="Close" />
           </button>
         </Modal.ModalHeader>
-        <form>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.target as HTMLFormElement;
+
+            if (!form.email.value || !form.password.value) {
+              toast.error('이메일과 비밀번호를 입력해주세요.');
+              return;
+            }
+            onLogin({
+              email: form.email.value,
+              password: form.password.value,
+              onClose,
+            });
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -46,9 +83,11 @@ export const LoginModal = ({ onClose }: { onClose: () => void }) => {
               gap: '16px',
             }}
           >
-            <Input placeholder="이메일" />
-            <Input placeholder="비밀번호" type="password" />
-            <Button type="submit">로그인</Button>
+            <Input name="email" placeholder="이메일" />
+            <Input name="password" placeholder="비밀번호" type="password" />
+            <Button disabled={isLoading} type="submit">
+              로그인
+            </Button>
           </div>
         </form>
         <Modal.ModalFooter>
