@@ -1,5 +1,7 @@
 import styled from 'styled-components';
 import { ContentCard } from './ContentCard';
+import { Link } from 'react-router-dom';
+import { SearchFilter } from '../Filter/SearchFilter';
 
 const Grid = styled.div`
   display: grid;
@@ -7,16 +9,17 @@ const Grid = styled.div`
   gap: 32px;
 `;
 
-export const ContentList = ({
-  items,
-}: {
-  items: { title: string; description: string; image: string }[];
-}) => {
+export const ContentList = ({ items }: { items: { title: string; description: string; image: string }[] }) => {
   return (
-    <Grid>
-      {items.map((item, idx) => (
-        <ContentCard key={idx} {...item} />
-      ))}
-    </Grid>
+    <>
+      <SearchFilter onSearch={() => console.log('검색')} />
+      <Grid>
+        {items.map((item, idx) => (
+          <Link style={{ textDecoration: 'none' }} to={`/inventory/${idx}`}>
+            <ContentCard key={idx} {...item} />
+          </Link>
+        ))}
+      </Grid>
+    </>
   );
 };

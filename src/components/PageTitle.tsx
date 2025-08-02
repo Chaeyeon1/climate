@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import styled from 'styled-components';
 
 const Title = styled.h1`
@@ -7,7 +8,7 @@ const Title = styled.h1`
   margin: 32px 0px 0px;
 `;
 
-export const PageTitle = ({ children }: { children: string }) => {
+export const PageTitle = ({ children }: { children: ReactNode }) => {
   return <Title>{children}</Title>;
 };
 

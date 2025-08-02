@@ -55,16 +55,23 @@ export const SearchFilter = ({ onSearch }: { onSearch: () => void }) => {
     <FilterWrapper>
       <StyledSelect>
         <StyledOption>전체 지역</StyledOption>
-        <StyledOption>전체 지역</StyledOption>
+        <StyledOption>한국</StyledOption>
+        <StyledOption>미국</StyledOption>
+        <StyledOption>중국</StyledOption>
       </StyledSelect>
       <StyledSelect>
         <StyledOption>전체 종류</StyledOption>
+        <StyledOption>논문</StyledOption>
+        <StyledOption>뉴스</StyledOption>
+        <StyledOption>기사</StyledOption>
       </StyledSelect>
       <StyledSelect>
         <StyledOption>전체 부문</StyledOption>
+        <StyledOption>정책</StyledOption>
+        <StyledOption>연구</StyledOption>
       </StyledSelect>
       <SearchContainer>
-        <Input placeholder='검색어 입력' />
+        <Input placeholder="검색어 입력" />
         <button onClick={onSearch}>검색</button>
       </SearchContainer>
     </FilterWrapper>

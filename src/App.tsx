@@ -1,13 +1,14 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { SearchFilter } from './components/Filter/SearchFilter';
 import { PageTitle, SubPageTitle } from './components/PageTitle';
 import { ContentList } from './components/Content/ContentList';
 import { EnvMap } from './components/Map/EnvMap';
 import { LoginModal } from './components/Modal/LoginModal';
-import { TabMenu } from './components/Tab/TabMenu';
 import { useState } from 'react';
 import { Header } from './components/Header/Header';
 import { SubHeader } from './components/Header/SubHeader';
+import { TabType } from './types';
+import { InventoryDetail } from './pages/inventory/InventoryDetail/InventoryDetail';
 
 type Props = {
   onToggleTheme: () => void;
@@ -26,25 +27,39 @@ function App({}: Props) {
     setOpen(true);
   };
 
+  const tabList: TabType[] = [
+    {
+      type: '/inventory',
+      title: '인벤토리',
+      subTitle: '환경 관련 콘텐츠를 확인하세요',
+    },
+    {
+      type: '/news',
+      title: '카드뉴스',
+      subTitle: '최신 환경 뉴스를 확인하세요',
+    },
+    {
+      type: '/map',
+      title: '환경지표',
+      subTitle: '전국의 환경 지표를 확인하세요',
+    },
+  ];
+
   return (
     <main style={{ paddingInline: '24px' }}>
-      <Header onLoginModalOpen={handleLoginModalOpen} />
+      <Header tabList={tabList} onLoginModalOpen={handleLoginModalOpen} />
       <div
         style={{
           maxWidth: '960px',
           margin: '52px auto',
         }}
       >
-        <SubHeader />
-
-        <SearchFilter onSearch={() => console.log('검색')} />
-        {/* {tab?.type === 'inventory' && <ContentList items={dummyData} />}
-          {tab?.type === 'cardnews' && <ContentList items={dummyData} />}
-          {tab?.type === 'map' && <EnvMap />} */}
         <Routes>
-          <Route path='/' element={<ContentList items={dummyData} />} />
-          <Route path='/news' element={<ContentList items={dummyData} />} />
-          <Route path='/environment' element={<EnvMap />} />
+          <Route path="/" element={<Navigate to="/inventory" replace />} />
+          <Route path="/inventory" element={<ContentList items={dummyData} />} />
+          <Route path="/inventory/:id" element={<InventoryDetail />} />
+          <Route path="/news" element={<ContentList items={dummyData} />} />
+          <Route path="/map" element={<EnvMap />} />
         </Routes>
       </div>
       {open && <LoginModal onClose={() => setOpen(false)} />}
