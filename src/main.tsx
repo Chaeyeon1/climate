@@ -5,8 +5,9 @@ import App from './App';
 import { ThemeProvider } from 'styled-components';
 import { GlobalStyle } from './styles/GlobalStyle';
 import { darkTheme, lightTheme } from './styles/theme';
+import { BrowserRouter } from 'react-router-dom';
 
-const Root = () => {
+export const Root = () => {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -32,6 +33,8 @@ const Root = () => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Root />
+    <BrowserRouter>
+      <Root />
+    </BrowserRouter>
   </React.StrictMode>
 );
