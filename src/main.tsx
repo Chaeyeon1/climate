@@ -1,4 +1,3 @@
-// src/main.tsx
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -7,7 +6,7 @@ import { GlobalStyle } from './styles/GlobalStyle';
 import { darkTheme, lightTheme } from './styles/theme';
 import { BrowserRouter } from 'react-router-dom';
 
-export const Root = () => {
+const Root = () => {
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -31,10 +30,22 @@ export const Root = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <Root />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+// 즉시 실행 함수로 구성
+const prepare = async () => {
+  if (import.meta.env.DEV) {
+    const { worker } = await import('./mocks/browser');
+    await worker.start();
+  }
+
+  const container = document.getElementById('root')!;
+  const root = ReactDOM.createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <Root />
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+};
+
+prepare();
