@@ -27,7 +27,7 @@ export const Header = ({
       <S.TabWrapper>
         {tabList.map((tab) => (
           <Link key={tab.type} to={tab.type}>
-            <Tab active={pathname.includes(tab.type)}>{tab.title}</Tab>
+            <Tab $active={pathname.includes(tab.type)}>{tab.title}</Tab>
           </Link>
         ))}
       </S.TabWrapper>
