@@ -9,4 +9,4 @@ export const PERIOD_AVERAGE = 'average';
 export const PERIOD_SUMMER = 'summer';
 export const PERIOD_ALL = 'all';
 
-export const CHART_HEIGHT = 800;
+export const CHART_HEIGHT = 600;

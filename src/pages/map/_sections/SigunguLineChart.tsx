@@ -14,7 +14,6 @@ type ApiResp = {
   items: ApiItem[];
 };
 
-// --- GID → 라벨(시군구 이름) 맵 (한글 우선, 없으면 영문, 그래도 없으면 GID)
 const ko = (s?: string) =>
   s ? (s.split('|')[0].split('(')[0] === 'NA' ? undefined : s.split('|')[0].split('(')[0]) : undefined;
 
@@ -25,9 +24,9 @@ const SIG_LABEL_BY_GID: Record<string, string> = {};
 });
 
 type Props = {
-  selectedSidoGid?: SelectedSido; // 선택된 시/도의 GID_1
-  filters: EnvIndicatorFilterParams; // { indicator, period }
-  height?: number; // 기본 400
+  selectedSidoGid?: SelectedSido;
+  filters: EnvIndicatorFilterParams;
+  height?: number;
 };
 
 export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
@@ -63,7 +62,7 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
         indicator,
         period,
         level: 'sigungu',
-        parentGid, // ★ 선택된 시/도에 속한 시군구만
+        parentGid,
       }).toString();
 
       const res = await fetch(`/map?${qs}`);
@@ -71,8 +70,6 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
       if (!alive) return;
 
       const items = (json.items ?? []).filter((i) => i.gid && i.value != null) as ApiItem[];
-
-      // x축(카테고리)와 y값 준비 — 값 기준 내림차순 정렬
       const sorted = items
         .map((i) => ({ name: SIG_LABEL_BY_GID[i.gid] || i.gid, value: Number(i.value) }))
         .sort((a, b) => b.value - a.value);
@@ -83,15 +80,35 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
       const min = json.domain?.min ?? Math.min(...values, 0);
       const max = json.domain?.max ?? Math.max(...values, 100);
 
+      // --- 겹침 방지: 하단 여백 동적 계산 + containLabel ---
+      const sliderHeight = 22; // dataZoom 슬라이더 높이
+      const sliderBottom = 10; // 컨테이너 바닥과의 간격
+      const estLabel = 20;
+      const bottomGrid = estLabel + 8; // 라벨 + 슬라이더 + 여유
+
       chart.setOption(
         {
-          title: { text: `시·군·구 꺾은선`, left: 'center' },
+          title: { text: selectedSidoGid?.name, left: 'center' },
           tooltip: { trigger: 'axis' },
-          grid: { left: 60, right: 24, top: 56, bottom: 60 },
+          grid: {
+            left: 64,
+            right: 24,
+            top: 56,
+            bottom: bottomGrid,
+            containLabel: true, // 라벨 영역을 그리드에 포함
+          },
           xAxis: {
             type: 'category',
             data: categories,
-            axisLabel: { rotate: 40, interval: 0 }, // 라벨 겹침 방지
+            axisLabel: {
+              rotate: 40,
+              interval: 0, // 모두 표시
+              margin: 10, // 축과 라벨 간격
+              hideOverlap: true, // 너무 빽빽할 때 자동 숨김
+              // 길면 줄이려면 아래 두 줄을 켜세요
+              // width: 100,
+              // overflow: 'truncate',
+            },
           },
           yAxis: {
             type: 'value',
@@ -101,23 +118,33 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
             nameGap: 14,
           },
           dataZoom: [
-            { type: 'slider', xAxisIndex: 0, height: 18, bottom: 24 },
+            {
+              type: 'slider',
+              xAxisIndex: 0,
+              height: sliderHeight,
+              bottom: sliderBottom, // 그리드 하단(bottomGrid) 아래로 배치됨
+              // left/right를 grid와 맞추고 싶다면 다음 주석 해제
+              // left: 64,
+              // right: 24,
+            },
             { type: 'inside', xAxisIndex: 0 },
           ],
           series: [
             {
-              type: 'line', // ★ 꺾은선
+              type: 'line',
               data: values,
               symbol: 'circle',
               symbolSize: 6,
-              smooth: false, // 부드럽게(spline) 하고 싶으면 true
-              showSymbol: false, // 데이터 많을 때 심벌 감춤
+              smooth: false,
+              showSymbol: false,
               markLine: { data: [{ type: 'average', name: '평균' }] },
               emphasis: { focus: 'series' },
+              animationDurationUpdate: 180,
+              animationEasingUpdate: 'quartOut',
             },
           ],
         },
-        true
+        { notMerge: true }
       );
     }
 
