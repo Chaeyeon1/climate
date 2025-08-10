@@ -38,7 +38,7 @@ export default function MapTable({ filters }: { filters: EnvIndicatorFilterParam
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: 1000, margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: 1000, margin: '32px auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <h3 style={{ margin: 0 }}>환경지표 테이블</h3>
         <div style={{ flex: 1 }} />

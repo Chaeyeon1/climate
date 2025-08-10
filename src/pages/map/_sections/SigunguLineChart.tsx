@@ -137,7 +137,7 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
               symbolSize: 6,
               smooth: false,
               showSymbol: false,
-              markLine: { data: [{ type: 'average', name: '평균' }] },
+              // markLine: { data: [{ type: 'average', name: '평균' }] },
               emphasis: { focus: 'series' },
               animationDurationUpdate: 180,
               animationEasingUpdate: 'quartOut',
