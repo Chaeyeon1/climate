@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { SearchFilter } from './components/Filter/SearchFilter';
 import { PageTitle, SubPageTitle } from './components/PageTitle';
 import { CardList } from './components/Card/CardList';
-import { EnvMap } from './components/Map/EnvMap';
 import { LoginModal } from './components/Modal/LoginModal';
 import { useEffect, useState } from 'react';
 import { Header } from './components/Header/Header';
@@ -11,6 +10,7 @@ import { TabType } from './types';
 import { MarkdownContent } from './components/MarkdownContent/MarkdownContent';
 import { useLogin } from './hooks/useLogin';
 import toast, { Toaster } from 'react-hot-toast';
+import { Map } from './pages/map/Map';
 
 type Props = {
   onToggleTheme: () => void;
@@ -65,7 +65,7 @@ function App({}: Props) {
           <Route path="/inventory/:id" element={<MarkdownContent />} />
           <Route path="/news" element={<CardList />} />
           <Route path="/news/:id" element={<MarkdownContent />} />
-          <Route path="/map" element={<EnvMap />} />
+          <Route path="/map" element={<Map />} />
         </Routes>
       </div>
       {open && <LoginModal isLoading={isLoading} onClose={() => setOpen(false)} onLogin={handleLogin} />}

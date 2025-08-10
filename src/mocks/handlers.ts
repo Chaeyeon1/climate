@@ -1,6 +1,8 @@
 // src/mocks/handlers.ts
-import { CardParams, CardResponse } from '@/types';
+import { CardParams, CardResponse, ChoroplethItem, ChoroplethResponse, Indicator, Level, MapResp } from '@/types';
 import { http } from 'msw';
+import Sido from '../pages/map/_related/gadm41_KOR_1.json'; // properties: GID_1, NAME_1, NL_NAME_1
+import Sigungu from '../pages/map/_related/gadm41_KOR_2.json'; // properties: GID_1, NAME_1, NL_NAME_1
 
 export const handlers = [
   // 로그인
@@ -249,21 +251,6 @@ Liu, J., Varghese, B.M., Hansen, A. *et al.* Increasing burden of poor mental 
     );
   }),
 
-  // 지도 데이터
-  http.get('/map', async () => {
-    return new Response(
-      JSON.stringify({
-        indicator: 'temperature',
-        period: '여름철',
-        data: [
-          { region: '서울', predicted: 28.3, observed: 29.3 },
-          { region: '부산', predicted: 27.1, observed: 28.0 },
-        ],
-      }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-  }),
-
   // 시군구 다운로드 (CSV)
   http.get('/map/export', async () => {
     const csv = `시도,시군구,관측값,예측값\n서울,강남구,28.3,29.0\n`;
@@ -274,5 +261,108 @@ Liu, J., Varghese, B.M., Hansen, A. *et al.* Increasing burden of poor mental 
         'Content-Disposition': 'attachment; filename="export.csv"',
       },
     });
+  }),
+
+  http.get('/map', async ({ request }) => {
+    const url = new URL(request.url);
+
+    // 1) 파라미터 정규화
+    const rawInd = url.searchParams.get('indicator') ?? url.searchParams.get('metric') ?? 'temperature';
+    const indicator = (rawInd === 'temparature' ? 'temperature' : rawInd) as Indicator;
+    const period = (url.searchParams.get('period') ?? 'all') as 'average' | 'summer' | 'all';
+    const level = (url.searchParams.get('level') ?? 'sido') as Level;
+    const parentGid = url.searchParams.get('parentGid') || '';
+
+    const sidoFeatures = (Sido as any).features as any[];
+    const sigFeatures = (Sigungu as any).features as any[];
+
+    // 2) 완전 결정적 해시 함수 (정렬/인덱스 영향 X)
+    const h = (s: string) => {
+      let x = 2166136261; // FNV-1a seed
+      for (let i = 0; i < s.length; i++) {
+        x ^= s.charCodeAt(i);
+        x = (x * 16777619) >>> 0;
+      }
+      return x;
+    };
+    // 전역 씨드: 같은 (indicator, period)이면 동일
+    const seed = h(`${indicator}|${period}`);
+
+    // 3) 부모값: GID_1만으로 결정 (40~99)
+    const parentBase = (gid1: string) => 40 + ((h(gid1) ^ seed) % 60);
+
+    // 4) 자식값: 부모 + 작은 오프셋(–3..+3), 0~100 clamp
+    const childValue = (gid2: string, gid1: string) => {
+      const base = parentBase(gid1);
+      const offset = ((h(gid2) ^ seed) % 7) - 3; // –3..+3
+      const v = base + offset;
+      return Math.max(0, Math.min(100, v));
+    };
+
+    if (level === 'sido') {
+      const items = sidoFeatures.map((f) => {
+        const gid1 = f.properties.GID_1 as string;
+        return { gid: gid1, value: parentBase(gid1) };
+      });
+      const vals = items.map((i) => i.value ?? 0);
+      return new Response(
+        JSON.stringify({
+          indicator,
+          period,
+          level,
+          domain: { min: Math.min(...vals), max: Math.max(...vals) },
+          items,
+        }),
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // level === 'sigungu'
+    const chosen = sigFeatures.filter((f) => !parentGid || f.properties.GID_1 === parentGid);
+    const items = chosen.map((f) => {
+      const gid2 = f.properties.GID_2 as string;
+      const gid1 = f.properties.GID_1 as string;
+      return { gid: gid2, value: childValue(gid2, gid1) };
+    });
+    const vals = items.map((i) => i.value ?? 0);
+
+    return new Response(
+      JSON.stringify({
+        indicator,
+        period,
+        level: 'sigungu',
+        domain: { min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 100 },
+        items,
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  }),
+
+  http.get('/map/table', async ({ request }) => {
+    const url = new URL(request.url);
+    const rawInd = url.searchParams.get('indicator') ?? url.searchParams.get('metric') ?? 'temperature';
+    const indicator = rawInd === 'temparature' ? 'temperature' : rawInd;
+    const period = url.searchParams.get('period') ?? 'all';
+
+    const sidoFeatures = (Sido as any).features as any[];
+    const regions = sidoFeatures
+      .map((f) => (f.properties.NL_NAME_1 as string)?.split('|')[0] || f.properties.NAME_1)
+      .sort();
+
+    // 예시: predict/value 를 약간 차이 나게 생성
+    const rows = regions.map((region, i) => ({
+      region,
+      predict: Number((20 + (i % 10) + 0.3).toFixed(1)),
+      value: Number((20 + (i % 10) + 1.1).toFixed(1)),
+    }));
+
+    return new Response(
+      JSON.stringify({
+        indicator,
+        period,
+        items: rows,
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
   }),
 ];
