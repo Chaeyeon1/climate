@@ -1,9 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+// _sections/SigunguLineChart.tsx
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as echarts from 'echarts';
+import Sido from '../_related/gadm41_KOR_1.json';
 import Sigungu from '../_related/gadm41_KOR_2.json';
-import { EnvIndicatorFilterParams } from '@/types';
-import { SelectedSido } from '../_related/types';
+import { EnvIndicatorFilterParams, SelectedSidos } from '@/types';
 import { CHART_HEIGHT } from '../_related/const';
+import { SigunguSelect } from './SigunguSelect';
 
 type ApiItem = { gid: string; value: number | null };
 type ApiResp = {
@@ -17,6 +21,12 @@ type ApiResp = {
 const ko = (s?: string) =>
   s ? (s.split('|')[0].split('(')[0] === 'NA' ? undefined : s.split('|')[0].split('(')[0]) : undefined;
 
+const SIDO_LABEL_BY_GID: Record<string, string> = {};
+(Sido as any).features.forEach((f: any) => {
+  const gid1 = f.properties.GID_1 as string;
+  SIDO_LABEL_BY_GID[gid1] = ko(f.properties.NL_NAME_1) || f.properties.NAME_1 || gid1;
+});
+
 const SIG_LABEL_BY_GID: Record<string, string> = {};
 (Sigungu as any).features.forEach((f: any) => {
   const gid2 = f.properties.GID_2 as string;
@@ -24,37 +34,59 @@ const SIG_LABEL_BY_GID: Record<string, string> = {};
 });
 
 type Props = {
-  selectedSidoGid?: SelectedSido;
+  selectedSidos: SelectedSidos; // ✔️ GID_1 배열
   filters: EnvIndicatorFilterParams;
   height?: number;
 };
 
-export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
+export default function SigunguLineChart({ selectedSidos, filters, height = CHART_HEIGHT }: Props) {
   const { indicator, period } = filters ?? {};
   const ref = useRef<HTMLDivElement>(null);
-  const parentGid = selectedSidoGid?.gid1;
+
+  // ✔️ 여러 개 선택 시 “활성 시/도”를 선택해서 보게 함
+  const [activeSido, setActiveSido] = useState<string | undefined>(selectedSidos[0]?.gid1);
+  useEffect(() => {
+    setActiveSido((prev) => (prev && selectedSidos.some((s) => s.gid1 === prev) ? prev : selectedSidos[0]?.gid1));
+  }, [selectedSidos]);
+
+  // (옵션) 시군구 필터/선택
+  const [selectedSigungu, setSelectedSigungu] = useState<string>('');
+  useEffect(() => {
+    // 시/도가 바뀌면 시군구 선택 초기화
+    setSelectedSigungu('');
+  }, [activeSido]);
+
+  const activeSidoName = useMemo(
+    () => selectedSidos.find((s) => s.gid1 === activeSido)?.name,
+    [selectedSidos, activeSido]
+  );
 
   useEffect(() => {
-    const dom = ref.current!;
-    const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+    const dom = ref.current;
+    if (!dom) return;
+
+    const chart = echarts.init(dom);
     let alive = true;
 
-    async function load() {
-      if (!parentGid) {
-        chart.clear();
-        chart.setOption({
+    const renderEmpty = (msg: string) => {
+      chart.clear();
+      chart.setOption(
+        {
           title: { text: '시·군·구 꺾은선', left: 'center' },
           graphic: {
             type: 'text',
             left: 'center',
             top: 'middle',
-            style: {
-              text: '지도의 시/도를 클릭(선택)하면 시·군·구 값이 표시됩니다.',
-              fontSize: 14,
-              fill: '#6b7280',
-            },
+            style: { text: msg, fontSize: 14, fill: '#6b7280' },
           },
-        });
+        } as echarts.EChartsOption,
+        { notMerge: true }
+      );
+    };
+
+    async function load() {
+      if (!activeSido) {
+        renderEmpty('지도의 시/도를 선택하면 시·군·구 값이 표시됩니다.');
         return;
       }
 
@@ -62,7 +94,7 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
         indicator,
         period,
         level: 'sigungu',
-        parentGid,
+        parentGid: activeSido,
       }).toString();
 
       const res = await fetch(`/map?${qs}`);
@@ -70,63 +102,43 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
       if (!alive) return;
 
       const items = (json.items ?? []).filter((i) => i.gid && i.value != null) as ApiItem[];
-      const sorted = items
-        .map((i) => ({ name: SIG_LABEL_BY_GID[i.gid] || i.gid, value: Number(i.value) }))
-        .sort((a, b) => b.value - a.value);
+      const mapped = items
+        // (선택된 시군구만 보고 싶다면 selectedSigungu 사용)
+        .filter((i) => (selectedSigungu ? i.gid === selectedSigungu : true))
+        .map((i) => ({ name: SIG_LABEL_BY_GID[i.gid] || i.gid, value: Number(i.value) }));
 
+      const sorted = mapped.sort((a, b) => b.value - a.value);
       const categories = sorted.map((d) => d.name);
       const values = sorted.map((d) => d.value);
 
-      const min = json.domain?.min ?? Math.min(...values, 0);
-      const max = json.domain?.max ?? Math.max(...values, 100);
+      const fallbackMin = values.length ? Math.min(...values) : 0;
+      const fallbackMax = values.length ? Math.max(...values) : 100;
+      const min = json.domain?.min ?? fallbackMin;
+      const max = json.domain?.max ?? fallbackMax;
 
-      // --- 겹침 방지: 하단 여백 동적 계산 + containLabel ---
-      const sliderHeight = 22; // dataZoom 슬라이더 높이
-      const sliderBottom = 10; // 컨테이너 바닥과의 간격
-      const estLabel = 20;
-      const bottomGrid = estLabel + 8; // 라벨 + 슬라이더 + 여유
+      const sliderHeight = 22;
+      const sliderBottom = 10;
+      const bottomGrid = 28; // 라벨/슬라이더 여유
 
       chart.setOption(
         {
-          title: { text: selectedSidoGid?.name, left: 'center' },
+          title: { text: activeSidoName, left: 'center' },
           tooltip: { trigger: 'axis' },
-          grid: {
-            left: 64,
-            right: 24,
-            top: 56,
-            bottom: bottomGrid,
-            containLabel: true, // 라벨 영역을 그리드에 포함
-          },
+          grid: { left: 64, right: 24, top: 56, bottom: bottomGrid, containLabel: true },
           xAxis: {
             type: 'category',
             data: categories,
             axisLabel: {
               rotate: 40,
-              interval: 0, // 모두 표시
-              margin: 10, // 축과 라벨 간격
-              hideOverlap: true, // 너무 빽빽할 때 자동 숨김
-              // 길면 줄이려면 아래 두 줄을 켜세요
-              // width: 100,
-              // overflow: 'truncate',
+              interval: 0,
+              margin: 10,
+              hideOverlap: true,
+              // width: 100, overflow: 'truncate',
             },
           },
-          yAxis: {
-            type: 'value',
-            min,
-            max,
-            name: '값',
-            nameGap: 14,
-          },
+          yAxis: { type: 'value', min, max, name: '값', nameGap: 14 },
           dataZoom: [
-            {
-              type: 'slider',
-              xAxisIndex: 0,
-              height: sliderHeight,
-              bottom: sliderBottom, // 그리드 하단(bottomGrid) 아래로 배치됨
-              // left/right를 grid와 맞추고 싶다면 다음 주석 해제
-              // left: 64,
-              // right: 24,
-            },
+            { type: 'slider', xAxisIndex: 0, height: sliderHeight, bottom: sliderBottom },
             { type: 'inside', xAxisIndex: 0 },
           ],
           series: [
@@ -137,27 +149,60 @@ export default function SigunguLineChart({ selectedSidoGid, filters }: Props) {
               symbolSize: 6,
               smooth: false,
               showSymbol: false,
-              // markLine: { data: [{ type: 'average', name: '평균' }] },
               emphasis: { focus: 'series' },
               animationDurationUpdate: 180,
               animationEasingUpdate: 'quartOut',
             },
           ],
-        },
+        } as echarts.EChartsOption,
         { notMerge: true }
       );
     }
 
     load();
 
-    const onResize = () => chart.resize();
-    window.addEventListener('resize', onResize);
+    // ResizeObserver로 크기 대응
+    const ro = new ResizeObserver(() => {
+      if (!chart.isDisposed()) chart.resize();
+    });
+    ro.observe(dom);
+
     return () => {
       alive = false;
-      window.removeEventListener('resize', onResize);
-      if (!chart.isDisposed?.()) echarts.dispose(dom);
+      ro.disconnect();
+      if (!chart.isDisposed()) chart.dispose();
     };
-  }, [parentGid, indicator, period]);
+  }, [activeSido, indicator, period, selectedSigungu, activeSidoName]);
 
-  return <div ref={ref} style={{ width: '50%', height: CHART_HEIGHT }} />;
+  return (
+    <div style={{ width: '50%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {/* 활성 시/도 선택 드롭다운 (복수 선택 시 전환용) */}
+        {selectedSidos.length > 1 && (
+          <select
+            value={activeSido ?? ''}
+            onChange={(e) => setActiveSido(e.target.value || undefined)}
+            style={{ padding: 6, borderRadius: 6, border: '1px solid #e5e7eb' }}
+          >
+            {selectedSidos.map((sido) => (
+              <option key={sido.gid1} value={sido.gid1}>
+                {sido.name || sido.gid1}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* (옵션) 특정 시군구만 보고 싶을 때 필터 */}
+        <SigunguSelect
+          selectedSidos={selectedSidos}
+          activeSidoId={activeSido} // 선택적
+          onChangeActiveSidoId={setActiveSido} // 선택적
+          value={selectedSigungu}
+          onChange={setSelectedSigungu}
+        />
+      </div>
+
+      <div ref={ref} style={{ width: '100%', height }} />
+    </div>
+  );
 }

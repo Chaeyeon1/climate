@@ -3,7 +3,33 @@ import { CardParams, CardResponse, ChoroplethItem, ChoroplethResponse, Indicator
 import { http } from 'msw';
 import Sido from '../pages/map/_related/gadm41_KOR_1.json'; // properties: GID_1, NAME_1, NL_NAME_1
 import Sigungu from '../pages/map/_related/gadm41_KOR_2.json'; // properties: GID_1, NAME_1, NL_NAME_1
+// 한글 라벨 우선
+const ko = (s?: string) =>
+  s ? (s.split('|')[0].split('(')[0] === 'NA' ? undefined : s.split('|')[0].split('(')[0]) : undefined;
+const SIDO_LABEL_BY_GID: Record<string, string> = {};
+(Sido as any).features.forEach((f: any) => {
+  const gid = f.properties.GID_1 as string;
+  SIDO_LABEL_BY_GID[gid] = ko(f.properties.NL_NAME_1) || f.properties.NAME_1 || gid;
+});
 
+// 간단한 월별 시계열 생성기(계절성 + 약한 노이즈)
+function makeMonthlySeries(seed = 0) {
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const observed = months.map((m) => {
+    const season = 10 + 15 * Math.sin(((m - 1) / 12) * Math.PI * 2 - Math.PI / 2); // 계절성
+    const base = season + 5 + (seed % 5);
+    const noise = ((m * 13 + seed * 7) % 5) - 2; // -2~+2
+    return Math.round((base + noise) * 10) / 10;
+  });
+  const predicted = observed.map((v, i) => Math.round((v + (((i + seed) % 3) - 1) * 0.7) * 10) / 10);
+  return { months, observed, predicted };
+}
+// 문자열 해시(지역별 고정 seed 용)
+const hash = (s: string) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+};
 export const handlers = [
   // 로그인
   http.post('/login', async () => {
@@ -361,6 +387,46 @@ Liu, J., Varghese, B.M., Hansen, A. *et al.* Increasing burden of poor mental 
         indicator,
         period,
         items: rows,
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  }),
+
+  http.get('/timeseries', async ({ request }) => {
+    const url = new URL(request.url);
+    const rawInd = url.searchParams.get('indicator') ?? url.searchParams.get('metric') ?? 'temperature';
+    const indicator = rawInd === 'temparature' ? 'temperature' : rawInd; // 오타 보정
+    const period = url.searchParams.get('period') ?? 'monthly';
+    const idsParam = url.searchParams.get('sidoIds') ?? '';
+    const sidoIds = idsParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // 전체(국가/전체 평균 느낌)
+    const overall = makeMonthlySeries(0);
+
+    // 선택된 시/도들
+    const regions = sidoIds.map((gid1) => {
+      const seed = (hash(gid1) % 7) + 1;
+      const { observed, predicted, months } = makeMonthlySeries(seed);
+      return {
+        gid1,
+        name: SIDO_LABEL_BY_GID[gid1] || gid1,
+        observed,
+        predicted,
+        months, // 각기 1~12
+      };
+    });
+
+    return new Response(
+      JSON.stringify({
+        indicator,
+        period,
+        unit: '°C',
+        months: overall.months,
+        overall: { observed: overall.observed, predicted: overall.predicted },
+        regions, // 선택이 없으면 []
       }),
       { headers: { 'Content-Type': 'application/json' } }
     );
