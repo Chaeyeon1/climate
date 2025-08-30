@@ -27,7 +27,7 @@ const SERIES_PROGRESSIVE_TH = 3000;
 const ko = (s?: string) =>
   s ? (s.split('|')[0].split('(')[0] === 'NA' ? undefined : s.split('|')[0].split('(')[0]) : undefined;
 
-// --- 라벨 맵
+// 라벨 맵
 const SIDO_LABEL_BY_GID: Record<string, string> = {};
 (Sido as any).features.forEach((f: any) => {
   const gid = f.properties.GID_1 as string;
@@ -44,57 +44,53 @@ const PARENT_BY_GID2: Record<string, string> = Object.fromEntries(
   ((Sigungu as any).features as any[]).map((f) => [f.properties.GID_2 as string, f.properties.GID_1 as string])
 );
 
-// 유틸: ids <-> 객체 배열
+// 헬퍼
 const toIds = (arr?: SelectedSido[]) => (arr ?? []).map((s) => s.gid1);
-const toSelectedSidos = (ids: string[], prev?: SelectedSido[]): SelectedSido[] => {
-  const nameById = new Map<string, string | undefined>(
-    (prev ?? []).map((p) => [p.gid1, p.name] as [string, string | undefined])
-  );
-  const uniq = Array.from(new Set(ids));
-  return uniq.map((gid1) => ({
-    gid1,
-    // 기존 이름을 보존하고, 없으면 라벨 맵으로 채움
-    name: nameById.get(gid1) ?? SIDO_LABEL_BY_GID[gid1] ?? gid1,
-  }));
-};
 
 export function MapChart({
-  level, // 'sido' | 'sigungu'
+  level,
   filters,
-  selectedSidos = [], // ✔️ 객체 배열
-  onChangeSelected, // ✔️ (prevSelected) => nextSelected
+  selectedSidos = [],
+  onChangeSelectedSidos,
+  selectedSigunguIds = [],
+  onChangeSelectedSigunguIds,
 }: {
   level: Level;
   filters: EnvIndicatorFilterParams;
+
+  // sido 선택 상태
   selectedSidos?: SelectedSido[];
-  onChangeSelected?: Dispatch<SetStateAction<SelectedSido[]>>;
+  onChangeSelectedSidos?: Dispatch<SetStateAction<SelectedSido[]>>;
+
+  // sigungu 선택 상태(GID_2)
+  selectedSigunguIds?: string[];
+  onChangeSelectedSigunguIds?: Dispatch<SetStateAction<string[]>>;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
+
+  const selectedSidoIds = useMemo(() => toIds(selectedSidos), [selectedSidos]);
 
   // 내부 ref 상태
   const instRef = useRef<echarts.ECharts | null>(null);
   const lastZoomRef = useRef<number>(1);
   const lastCenterRef = useRef<number[] | undefined>(undefined);
   const visualMapDirtyRef = useRef(true);
-
-  // 선택된 gid1 배열 (파생)
-  const selectedIds = useMemo(() => toIds(selectedSidos), [selectedSidos]);
-  const selectedIdsRef = useRef<string[]>(selectedIds);
+  const selectedSidoIdsRef = useRef<string[]>(selectedSidoIds);
+  const selectedSigunguIdsRef = useRef<string[]>(selectedSigunguIds);
   useEffect(() => {
-    selectedIdsRef.current = selectedIds;
-  }, [selectedIds]);
+    selectedSidoIdsRef.current = selectedSidoIds;
+  }, [selectedSidoIds]);
+  useEffect(() => {
+    selectedSigunguIdsRef.current = selectedSigunguIds;
+  }, [selectedSigunguIds]);
 
-  // 레벨별 domain
-  const domainByLevelRef = useRef({
-    sido: { min: 0, max: 100 },
-    sigungu: { min: 0, max: 100 },
-  });
+  const domainByLevelRef = useRef({ sido: { min: 0, max: 100 }, sigungu: { min: 0, max: 100 } });
 
   // 데이터 캐시
   const sidoDataRef = useRef<Array<{ gid: string; value: number }>>([]);
   const sigunguDataRef = useRef<Array<{ gid: string; value: number }>>([]);
 
-  // ---------- 차트 인스턴스 ----------
+  // 차트 인스턴스
   useEffect(() => {
     const dom = chartRef.current;
     if (!dom) return;
@@ -115,40 +111,26 @@ export function MapChart({
     };
 
     const onClick = (p: any) => {
-      if (!onChangeSelected) return;
-
-      if (level === 'sido') {
+      // --- sido 다중 토글 ---
+      if (level === 'sido' && onChangeSelectedSidos) {
         const gid1 = p.name as string;
-        const isSel = selectedIdsRef.current.includes(gid1);
-        if (isSel) {
-          onChangeSelected((prev) => {
-            const nextIds = selectedIdsRef.current.filter((id) => id !== gid1);
-            return toSelectedSidos(nextIds, prev);
-          });
-        } else {
-          instRef.current?.dispatchAction({ type: 'select', seriesIndex: 0, name: gid1 });
-          onChangeSelected((prev) => {
-            const nextIds = Array.from(new Set([...selectedIdsRef.current, gid1]));
-            return toSelectedSidos(nextIds, prev);
-          });
-        }
-      } else {
-        // sigungu 클릭 시, 부모 시/도를 선택/추가
-        const gid2 = p.name as string;
-        const gid1 = PARENT_BY_GID2[gid2];
-        if (!gid1) return;
-
-        if (selectedIdsRef.current.includes(gid1)) {
-          // 이미 선택된 시/도의 시군구를 클릭하면 해제되지 않도록 즉시 재선택
-          setTimeout(() => {
-            instRef.current?.dispatchAction({ type: 'select', seriesIndex: 0, name: gid2 });
-          }, 0);
-          return;
-        }
-        onChangeSelected?.((prev) => {
-          const nextIds = Array.from(new Set([...selectedIdsRef.current, gid1]));
-          return toSelectedSidos(nextIds, prev);
+        const isSel = selectedSidoIdsRef.current.includes(gid1);
+        onChangeSelectedSidos((prev) => {
+          if (isSel) return prev.filter((s) => s.gid1 !== gid1);
+          return [...prev, { gid1, name: SIDO_LABEL_BY_GID[gid1] ?? gid1 }];
         });
+        return;
+      }
+
+      // --- sigungu 다중 토글 ---
+      if (level === 'sigungu' && onChangeSelectedSigunguIds) {
+        const gid2 = p.name as string;
+        const isSel = selectedSigunguIdsRef.current.includes(gid2);
+        onChangeSelectedSigunguIds((prev) => {
+          if (isSel) return prev.filter((id) => id !== gid2);
+          return Array.from(new Set([...prev, gid2]));
+        });
+        return;
       }
     };
 
@@ -162,23 +144,24 @@ export function MapChart({
       if (!chart.isDisposed()) chart.dispose();
       instRef.current = null;
     };
-  }, [level, onChangeSelected]);
+  }, [level, onChangeSelectedSidos, onChangeSelectedSigunguIds]);
 
-  // ---------- 데이터→시리즈 ----------
+  // 데이터→시리즈
   const buildSeriesData = (currLevel: Level) => {
     const sidoData = sidoDataRef.current;
     const sigData = sigunguDataRef.current;
-    const selectedSet = new Set(selectedIdsRef.current);
 
     if (currLevel === 'sido') {
+      const selectedSet = new Set(selectedSidoIdsRef.current);
       return sidoData.map((d) => ({
-        name: d.gid, // GID_1
+        name: d.gid,
         value: d.value,
         selected: selectedSet.has(d.gid),
       }));
     }
 
     // sigungu
+    const selectedSet = new Set(selectedSigunguIdsRef.current); // ← GID_2 선택 기준
     const bySido = new Map(sidoData.map((d) => [d.gid, d.value]));
     const bySig = new Map(sigData.map((d) => [d.gid, d.value]));
     const features = (Sigungu as any).features as Array<any>;
@@ -187,11 +170,7 @@ export function MapChart({
       const gid2 = f.properties.GID_2 as string;
       const gid1 = f.properties.GID_1 as string;
       const v = bySig.get(gid2) ?? bySido.get(gid1) ?? 0;
-      return {
-        name: gid2, // GID_2
-        value: v,
-        selected: selectedSet.has(gid1),
-      };
+      return { name: gid2, value: v, selected: selectedSet.has(gid2) };
     });
   };
 
@@ -231,7 +210,7 @@ export function MapChart({
       animationEasingUpdate: 'quarticOut',
       zoom: lastZoomRef.current,
       center: lastCenterRef.current,
-      selectedMode: 'multiple',
+      selectedMode: 'multiple', // 둘 다 다중 선택
       select: {
         itemStyle: { areaColor: '#F9D84A', borderColor: '#7C6E24', borderWidth: 1.2 },
         label: { show: true },
@@ -272,7 +251,7 @@ export function MapChart({
     chart.setOption(option, { notMerge: false, lazyUpdate: true, replaceMerge: ['series'] });
   };
 
-  // ---------- 데이터 fetch + 옵션 반영 ----------
+  // 데이터 fetch + 옵션 반영
   useEffect(() => {
     let cancelled = false;
 
@@ -293,7 +272,6 @@ export function MapChart({
           visualMapDirtyRef.current = true;
         }
       }
-
       return (json.items ?? []).filter((i) => i.gid && i.value != null) as ApiItem[];
     }
 
@@ -320,10 +298,18 @@ export function MapChart({
     };
   }, [filters.indicator, filters.period, level]);
 
-  // 선택 갱신 시 반영
+  // 선택/레벨 변경 반영
   useEffect(() => {
     applyOption();
-  }, [level, selectedIds.join(',')]);
+  }, [level, selectedSidoIds.join(','), selectedSigunguIds.join(',')]);
 
-  return <div ref={chartRef} style={{ width: selectedIds.length ? '50%' : '100%', height: CHART_HEIGHT }} />;
+  return (
+    <div
+      ref={chartRef}
+      style={{
+        width: (level === 'sido' ? selectedSidoIds.length : selectedSigunguIds.length) ? '50%' : '100%',
+        height: CHART_HEIGHT,
+      }}
+    />
+  );
 }

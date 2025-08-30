@@ -12,6 +12,26 @@ const SIDO_LABEL_BY_GID: Record<string, string> = {};
   SIDO_LABEL_BY_GID[gid] = ko(f.properties.NL_NAME_1) || f.properties.NAME_1 || gid;
 });
 
+// 시군구 라벨 맵 (추가)
+const SIG_LABEL_BY_GID: Record<string, string> = {};
+(Sigungu as any).features.forEach((f: any) => {
+  const gid2 = f.properties.GID_2 as string;
+  SIG_LABEL_BY_GID[gid2] = ko(f.properties.NL_NAME_2) || f.properties.NAME_2 || gid2;
+});
+
+// 시군구(GID_2) -> 부모 시/도(GID_1) 맵 (추가)
+const PARENT_BY_GID2: Record<string, string> = Object.fromEntries(
+  ((Sigungu as any).features as any[]).map((f) => [f.properties.GID_2 as string, f.properties.GID_1 as string])
+);
+
+// 월 포인트를 [YYYY-MM, value]로 만드는 헬퍼 (추가)
+function toMonthlyPoints(values: number[], months: number[]) {
+  return months.map((m, i) => {
+    const mm = String(m).padStart(2, '0');
+    return [`2025-${mm}`, values[i]] as [string, number];
+  });
+}
+
 // 간단한 월별 시계열 생성기(계절성 + 약한 노이즈)
 function makeMonthlySeries(seed = 0) {
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -359,6 +379,96 @@ Liu, J., Varghese, B.M., Hansen, A. *et al.* Increasing burden of poor mental 
         level: 'sigungu',
         domain: { min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 100 },
         items,
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  }),
+
+  // ✅ 전체 평균 시계열
+  http.get('/series/overall', async ({ request }) => {
+    const url = new URL(request.url);
+
+    const rawInd = url.searchParams.get('indicator') ?? 'temperature';
+    const indicator = rawInd === 'temparature' ? 'temperature' : rawInd;
+    const period = url.searchParams.get('period') ?? 'monthly';
+
+    // 월별 데이터 생성 (seed = 0 고정)
+    const { observed, predicted, months } = makeMonthlySeries(0);
+
+    return new Response(
+      JSON.stringify({
+        indicator,
+        period,
+        unit: '°C',
+        range: { start: `2025-01`, end: `2025-12`, step: 'month' },
+        overall: {
+          name: '전체 평균',
+          observed: months.map((m, i) => [`2025-${String(m).padStart(2, '0')}`, observed[i]]),
+          predicted: months.map((m, i) => [`2025-${String(m).padStart(2, '0')}`, predicted[i]]),
+        },
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  }),
+
+  http.get('/series', async ({ request }) => {
+    const url = new URL(request.url);
+
+    const rawInd = url.searchParams.get('indicator') ?? url.searchParams.get('metric') ?? 'temperature';
+    const indicator = (rawInd === 'temparature' ? 'temperature' : rawInd) as Indicator; // 오타 보정
+    const period = url.searchParams.get('period') ?? 'monthly'; // 'monthly'만 목업
+    const level = (url.searchParams.get('level') ?? 'sido') as Level; // 'sido' | 'sigungu'
+    const ids = (url.searchParams.get('ids') ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (!ids.length) {
+      return new Response(JSON.stringify({ error: 'ids is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 같은 (indicator, period) 조합이면 동일 시계열 패턴
+    const baseSeed = hash(`${indicator}|${period}`);
+
+    // 월 데이터 생성
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+    const series = ids.map((id) => {
+      // 레벨별 라벨/시드 분기
+      let name = id;
+      let seed = baseSeed;
+
+      if (level === 'sido') {
+        name = SIDO_LABEL_BY_GID[id] || id;
+        seed = (hash(id) % 7) + 1 + baseSeed;
+      } else {
+        // sigungu
+        name = SIG_LABEL_BY_GID[id] || id;
+        // 부모 시/도 기반으로 약간 상관을 주고, 개별 gid2로 변주
+        const gid1 = PARENT_BY_GID2[id] || 'KOR.X';
+        seed = (hash(gid1 + ':' + id) % 11) + 1 + baseSeed;
+      }
+
+      const { observed, predicted } = makeMonthlySeries(seed);
+      return {
+        id,
+        name,
+        points: toMonthlyPoints(observed, months), // 필요하면 predicted도 함께 내려주세요
+        // pointsPred: toMonthlyPoints(predicted, months)
+      };
+    });
+
+    return new Response(
+      JSON.stringify({
+        indicator,
+        period, // 'monthly'
+        level, // 'sido' | 'sigungu'
+        unit: '°C',
+        range: { start: `2025-01`, end: `2025-12`, step: 'month' },
+        series,
       }),
       { headers: { 'Content-Type': 'application/json' } }
     );
